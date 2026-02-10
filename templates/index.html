@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Document Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        .file-input-label {
+            background: #667eea;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+        .file-input-label:hover {
+            background: #5568d3;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .response {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+            display: none;
+        }
+        .response.show {
+            display: block;
+        }
+        .error {
+            border-left-color: #e74c3c;
+            color: #e74c3c;
+        }
+        .success {
+            border-left-color: #2ecc71;
+            color: #2ecc71;
+        }
+        .filename {
+            color: #666;
+            font-style: italic;
+        }
+        .json-output {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+            margin: 0;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .confidence {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .confidence.High {
+            background: #d4edda;
+            color: #155724;
+        }
+        .confidence.Medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .confidence.Low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .sources {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        .source-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-left: 3px solid #667eea;
+            border-radius: 3px;
+        }
+        .source-meta {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 RAG Document Assistant</h1>
+        
+        <div class="section">
+            <h2>1. Upload Document</h2>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div class="file-input-wrapper">
+                    <label class="file-input-label" for="fileInput">Choose File</label>
+                    <input type="file" id="fileInput" accept=".pdf,.docx,.txt">
+                </div>
+                <button onclick="uploadFile()" id="uploadBtn">Upload</button>
+                <span class="filename" id="fileName"></span>
+            </div>
+            <div class="response" id="uploadResponse"></div>
+        </div>
+
+        <div class="section">
+            <h2>2. Ask Questions</h2>
+            <input type="text" id="question" placeholder="Enter your question about the document...">
+            <button onclick="askQuestion()">Ask</button>
+            <div class="response" id="askResponse"></div>
+        </div>
+
+        <div class="section">
+            <h2>3. Extract Structured Data</h2>
+            <button onclick="extractData()">Extract Shipment Data</button>
+            <div class="response" id="extractResponse"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || '';
+            document.getElementById('fileName').textContent = fileName;
+        });
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const responseDiv = document.getElementById('uploadResponse');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (!fileInput.files[0]) {
+                showResponse(responseDiv, 'Please select a file', 'error');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            responseDiv.innerHTML = '<div class="spinner"></div>Processing...';
+            responseDiv.className = 'response show';
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResponse(responseDiv, data.message, 'success');
+                } else {
+                    showResponse(responseDiv, data.error, 'error');
+                }
+            } catch (error) {
+                showResponse(responseDiv, 'Upload failed: ' + error.message, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        }
+
+        async function askQuestion() {
+            const question = document.getElementById('question').value;
+            const responseDiv = document.getElementById('askResponse');
+            
+            if (!question) {
+                showResponse(responseDiv, 'Please enter a question', 'error');
+                return;
+            }
+
+            responseDiv.innerHTML = '<div class="spinner"></div>Thinking...';
+            responseDiv.className = 'response show';
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question})
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let html = `<div><strong>Answer:</strong> ${data.answer}</div>`;
+                    html += `<div style="margin-top:10px; color:#666; font-size:0.9em;"><strong>Score:</strong> ${data.score}</div>`;
+                    if (data.source) {
+                        html += `<div style="margin-top:10px; padding:10px; background:#f8f9fa; border-radius:5px; font-size:0.9em;"><strong>Source:</strong><br>${data.source}</div>`;
+                    }
+                    responseDiv.innerHTML = html;
+                    responseDiv.className = 'response show success';
+                } else {
+                    showResponse(responseDiv, data.error, 'error');
+                }
+            } catch (error) {
+                showResponse(responseDiv, 'Request failed: ' + error.message, 'error');
+            }
+        }
+
+        async function extractData() {
+            const responseDiv = document.getElementById('extractResponse');
+            
+            responseDiv.innerHTML = '<div class="spinner"></div>Extracting...';
+            responseDiv.className = 'response show';
+
+            try {
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const jsonStr = JSON.stringify(data, null, 2);
+                    responseDiv.innerHTML = '<pre class="json-output"></pre>';
+                    responseDiv.querySelector('pre').textContent = jsonStr;
+                    responseDiv.classList.add('show');
+                    responseDiv.classList.remove('error');
+                } else {
+                    showResponse(responseDiv, data.error, 'error');
+                }
+            } catch (error) {
+                showResponse(responseDiv, 'Extraction failed: ' + error.message, 'error');
+            }
+        }
+
+        function showResponse(element, message, type) {
+            element.textContent = message;
+            element.className = 'response show ' + type;
+        }
+    </script>
+</body>
+</html>

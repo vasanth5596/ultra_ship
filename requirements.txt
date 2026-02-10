@@ -1,0 +1,11 @@
+flask
+langchain-community
+langchain-openai
+langchain-text-splitters
+langchain-classic
+faiss-cpu
+pymupdf
+docx2txt
+unstructured
+python-dotenv
+openai
