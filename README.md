@@ -125,13 +125,9 @@ python app.py
 
 Open `http://127.0.0.1:5000`
 
-You'll need an OpenAI API key in a `.env` file:
+You'll need an OpenAI API key :
 
-```
-OPENAI_API_KEY=your_key_here
-```
-
-## choose file--> upload--> ask question
+## enter key--> choose file--> upload--> ask question
 
 ## Tech Stack
 

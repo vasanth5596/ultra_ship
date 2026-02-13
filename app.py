@@ -8,16 +8,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_classic.chains.retrieval import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
-from dotenv import load_dotenv
 import json
 import os
 from openai import OpenAI
-from dotenv import load_dotenv
-load_dotenv()
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-load_dotenv()
 
 def extract_text(file_path):
     ext = file_path.lower().split('.')[-1]
@@ -47,7 +40,8 @@ def extract_text(file_path):
     return docs
 
 
-def structured_data(data):
+def structured_data(data, api_key):
+    client = OpenAI(api_key=api_key)
     prompt = f"""
     use the shipment data: {data}
 
@@ -83,12 +77,12 @@ def structured_data(data):
     
 
 
-def build_rag(filepath):
+def build_rag(filepath, api_key):
     docs = extract_text(filepath)
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     chunks = text_splitter.split_documents(docs)
     
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-large",dimensions=32)
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-large",dimensions=32, openai_api_key=api_key)
     vectorstore = FAISS.from_documents(chunks, embeddings)
     retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 2})
     
@@ -101,7 +95,7 @@ def build_rag(filepath):
 
     Answer:""")
     
-    llm = ChatOpenAI(model="gpt-4.1-nano-2025-04-14")
+    llm = ChatOpenAI(model="gpt-4.1-nano-2025-04-14", openai_api_key=api_key)
     document_chain = create_stuff_documents_chain(llm, prompt)
     retrieval_chain = create_retrieval_chain(retriever, document_chain)
     
@@ -116,6 +110,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 rag_chain = None
 vectorstore = None
 current_filepath = None
+user_api_key = None
 
 @app.route('/')
 def index():
@@ -123,10 +118,14 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    global rag_chain, vectorstore
+    global rag_chain, vectorstore, user_api_key
     
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
+    
+    api_key = request.form.get('api_key', '')
+    if not api_key:
+        return jsonify({'error': 'No API key provided'}), 400
     
     file = request.files['file']
     if file.filename == '':
@@ -138,7 +137,8 @@ def upload():
     
     try:
         global current_filepath
-        rag_chain, vectorstore = build_rag(filepath)
+        user_api_key = api_key
+        rag_chain, vectorstore = build_rag(filepath, api_key)
         current_filepath = filepath
         return jsonify({'message': 'File uploaded and processed successfully', 'filename': filename})
     except Exception as e:
@@ -173,16 +173,16 @@ def ask():
 
 @app.route('/extract', methods=['POST'])
 def extract():
-    if not current_filepath:
+    if not current_filepath or not user_api_key:
         return jsonify({'error': 'No document uploaded yet'}), 400
     
     try:
         docs = extract_text(current_filepath)
         full_text = " ".join([doc.page_content for doc in docs])
-        structured = structured_data(full_text)
+        structured = structured_data(full_text, user_api_key)
         return jsonify(structured)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

@@ -185,7 +185,8 @@
         
         <div class="section">
             <h2>1. Upload Document</h2>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <input type="password" id="apiKey" placeholder="Enter your OpenAI API Key...">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
                 <div class="file-input-wrapper">
                     <label class="file-input-label" for="fileInput">Choose File</label>
                     <input type="file" id="fileInput" accept=".pdf,.docx,.txt">
@@ -218,8 +219,14 @@
 
         async function uploadFile() {
             const fileInput = document.getElementById('fileInput');
+            const apiKey = document.getElementById('apiKey').value;
             const responseDiv = document.getElementById('uploadResponse');
             const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (!apiKey) {
+                showResponse(responseDiv, 'Please enter your OpenAI API Key', 'error');
+                return;
+            }
             
             if (!fileInput.files[0]) {
                 showResponse(responseDiv, 'Please select a file', 'error');
@@ -232,6 +239,7 @@
 
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
+            formData.append('api_key', apiKey);
 
             try {
                 const response = await fetch('/upload', {
